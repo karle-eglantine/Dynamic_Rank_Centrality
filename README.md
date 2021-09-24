@@ -3,11 +3,10 @@
  
 ## Files
 
-\begin{itemize}
-\item drc_N100.py contains the script to obtain the data for Figure 1
-\item drc_N100.py contains the script to obtain the data for Figure 1
-\item nfl_analysis.py contains the script to obtain the data for Figure 2
-\end{itemize}
++ drc_N100.py contains the script to obtain the data for Figure 1
++ drc_N100.py contains the script to obtain the data for Figure 1
++ nfl_analysis.py contains the script to obtain the data for Figure 2
+
  
 
 
