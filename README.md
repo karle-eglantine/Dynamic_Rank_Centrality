@@ -1,4 +1,4 @@
-# Dynamic_Rank_Centrality
+# Dynamic Rank Centrality
  Code for the DRC article : put link
  
 ## Files
