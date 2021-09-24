@@ -4,8 +4,8 @@
 ## Files
 
 + drc_N100.py contains the script to obtain the data for Figure 1
-+ drc_N100.py contains the script to obtain the data for Figure 1
-+ nfl_analysis.py contains the script to obtain the data for Figure 2
++ drc_N400.py contains the script to obtain the data for Figure 2
++ nfl_analysis.py contains the script to obtain the data for Figure 3
 
  
 
