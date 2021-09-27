@@ -4,8 +4,7 @@ import pickle
 import sys
 import scipy.stats as ss
 
-sys.path.append('/Users/eglantine.karle/Documents/GitHub/Dynamic_Rank_Centrality/modules')
-
+# Import files from folder 'modules'
 import mle_module as mle
 import graph_module as graph
 import simulation_module as sim
