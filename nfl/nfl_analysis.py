@@ -13,7 +13,7 @@ sys.path.append('/Users/eglantine.karle/Documents/GitHub/Dynamic_Rank_Centrality
 import nfl_module as nfl
 
 # Load datasets
-data_dir = '/Users/eglantine.karle/Documents/GitHub/Dynamic_Rank_Centrality/nfl/nfl_data'
+data_dir = '/Users/eglantine.karle/Documents/GitHub/Dynamic_Rank_Centrality/nfl_data'
 all_rnds = np.arange(1,17)
 all_seasons = np.arange(2009,2016)
 
