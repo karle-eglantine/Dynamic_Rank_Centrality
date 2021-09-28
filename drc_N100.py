@@ -4,6 +4,10 @@ import pickle
 import sys
 import scipy.stats as ss
 
+# Add path to folder 'modules'
+import sys
+sys.path.append('.../modules')
+
 # Import files from folder 'modules'
 import mle_module as mle
 import graph_module as graph
