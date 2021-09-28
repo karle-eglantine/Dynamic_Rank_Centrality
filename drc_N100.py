@@ -5,7 +5,6 @@ import sys
 import scipy.stats as ss
 
 # Add path to folder 'modules'
-import sys
 sys.path.append('.../modules')
 
 # Import files from folder 'modules'
