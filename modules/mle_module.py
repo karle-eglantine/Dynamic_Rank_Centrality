@@ -1,3 +1,6 @@
+# This module belongs to Bong et al. (2020)
+# It contains useful functions to conduct the kernel smoothing and the MLE analysis
+
 import scipy.linalg as spl
 from scipy import stats
 import numpy as np
@@ -12,6 +15,9 @@ def kernel_function(t,tk,h):
     return 1/((2 * np.pi)**0.5 * h) * np.exp( - (t - tk)**2 / (2 * h**2))
 
 def kernel_smooth(game_matrix_list,h,T_list = None):
+    '''
+    return the smoothed version of the data
+    '''
     T, N = game_matrix_list.shape[0:2]
     if T_list is None:
         T_list = np.arange(T)
@@ -29,6 +35,10 @@ def gd_bt(data,
               max_iter=1000, ths=1e-12,
               step_init=0.5, max_back=200, a=0.2, b=0.5,
               beta_init=None, verbose=False, out=sys.stdout):
+    '''
+    Perform the MLE estimation where data has been smoothed beforehand.
+    Returns a tuple (a,b) where b is the estimation of the weights at each time data where provided.
+    '''
     # initialize optimization
     T, N = data.shape[0:2]
     if beta_init is None:
@@ -361,7 +371,3 @@ def pgd_l2_sq(data, l_penalty=1,
                 out.flush()
 
     return objective_wback, beta    
-
-print('mle')
-
-
