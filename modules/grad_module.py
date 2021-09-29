@@ -1,3 +1,6 @@
+# This module belongs to Bong et al. (2020), available on their GitHub webpage.
+# It contains useful functions for the MLE analysis.
+
 import numpy as np
 
 def neg_log_like(beta,game_matrix_list):
