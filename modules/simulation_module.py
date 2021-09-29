@@ -1,3 +1,5 @@
+# This module contains useful functions to generate synthetic data and containing the main functions to perform the DRC and the Borda Count analysis.
+
 import scipy as sc
 from scipy import stats
 import scipy.stats as ss
@@ -5,42 +7,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import networkx as nx
 import sys
+import scipy.linalg as spl
 
 sys.path.append('Documents/GitHub/Dynamic_Rank_Centrality/synthetic_data')
 
 import graph_module as graph
 
-def borda_count(t,Y,A,delta):
-    T, N = A.shape[:2]
-    N_delta = graph.neighborhood(t,delta,T-1)
-    Y_delta = np.sum(Y[N_delta,:,:],axis=0)
-    A_delta = np.sum(A[N_delta,:,:],axis=0)
-    borda_count = np.sum(Y_delta, axis=0) / np.sum(A_delta,axis=0)
-    return borda_count
-
-def error_metric(w,sigma):
-    s = 0
-    N = np.shape(w)[0]
-    for i in range(N):
-        for j in range(i+1,N):
-            cond = (w[i]-w[j])*(sigma[i]-sigma[j])>0
-            if cond:
-                s =+ (w[i]-w[j])**2 # Only count pairs where ranking is incorrect
-    return np.sqrt(s/(2*N*np.linalg.norm(w)**2))
-
-def rank_list(v):
-    output = [0] * len(v)
-    for i, x in enumerate(sorted(range(len(v)), key=lambda y: v[y])):
-        output[x] = i
-    return np.array(output)
-
-def av_dif_rank(w1,w2):
-    # both w should be T-by-N matrices
-    T, N = w1.shape
-    result = [0] * T
-    for t in range(T):
-        result[t] = np.mean(abs(rank_list(w1[t]) - rank_list(w2[t])))
-    return result
+# Generation of synthetic data
 
 def w_gaussian_process(N, T, mu_parameters, cov_parameters, mu_type = 'constant', cov_type = 'toeplitz'):
     '''
@@ -52,20 +25,11 @@ def w_gaussian_process(N, T, mu_parameters, cov_parameters, mu_type = 'constant'
         mu = [np.ones(T) * mu_start[i] for i in range(N)]
     if cov_type == 'toeplitz':
         alpha, r = cov_parameters
-    ##### strong auto-correlation case, off diagonal  = 1 - T^(-alpha) * |i - j|^r
+        
     off_diag = 1 - np.float_power(T,-alpha) * np.float_power(np.arange(1,T + 1),r)
     cov_single_path = sc.linalg.toeplitz(off_diag,off_diag)
 
     return np.exp(np.array([np.random.multivariate_normal(mean = mu[i],cov = cov_single_path,size = 1).ravel() for i in range(N)]).T)
-
-# or generate,N functions of time, indep of T
-def generate_w(N,T):
-    '''return a TxN vector with w_i(t) = 2+2*(i-1)/n + cos(2*pi*t)'''
-    w = np.zeros((T,N))
-    for i in range(N):
-        for t in range(T):
-            w[t,i] = 2+2*i/np.sqrt(N) + np.cos(2*np.pi*t/T)
-    return w
 
 def get_adjacency_graphs(N,T,c1 = 1,c2 = 10):
     '''
@@ -133,26 +97,24 @@ def get_valid_graphs(N,T,vec_delta,output_grid,c1,c2):
     return A,vec_delta
 
 
-print('simu')
-
-
-### Spectral module ####
-import scipy.linalg as spl
+# DRC analysis
 
 def transition_matrix(A_delta,Y,N_delta):
     '''
-    Compute the transition matrix of the union graph at time t
+    Compute the transition matrix of the union graph
     Input : 
-        A_delta : adajcency matrix of the union graph
+        A_delta : adajcency matrix of the union graph at a given time t
         Y : (T+1)-N-N array containig the pairwise comparison information, averaged on the L workers at each time
-        N_delta : neighborhood
-    Output : N-N arary
+        N_delta : neighborhood of t, on which is defined the union graph
+    Output : N-N array of the transition matrix \hat{P}(t)
     '''
     N = np.shape(Y)[1]
     transition_matrix = np.zeros((N,N))
+    # Choice of the normalisation term d_delta(t)
     d = 2*N*graph.graph_proba(A_delta)
     for i in range(N):
         for j in range(N):
+            # Non zeros coefficients are only on the diagonal and for the pair (i,j) that has been compared at least once in the times belonging to the neighborhood
             if (i != j) & (A_delta[i,j] != 0):
                 transition_matrix[i,j] = sum(Y[N_delta,i,j])/(d*A_delta[i,j])
         transition_matrix[i,i] = 1-np.sum(transition_matrix[i,:])
@@ -160,22 +122,53 @@ def transition_matrix(A_delta,Y,N_delta):
 
 def RC_dyn(t,Y,A,delta,tol = 1e-12):
     '''
-    get the estimator pihat_RC(t)
+    get the estimator \hat{pi}(t) for the DRC method
     ------------
     Input :
+    t: time at which we want to estimate the weights and the ranks
     Y: (T+1)-N-N array containig the pairwise comparison information, averaged on the L workers at each time
     A: (T+1)-N-N array, A[t,:,:] is the adjacency matrix of data at time t
     tol = tolerance to approximate the eigenvalues equal to 1. 
     Output :
-    If union graph disconnected
+    N-array of the estimates, normalized for the l1-norm.
     '''
     T,N = np.shape(A)[:2]
+    # Compute the transition matrix 
     N_delta = graph.neighborhood(t,delta,T-1)
     A_delta = graph.union_graph(A,delta,t)
     P = transition_matrix(A_delta,Y,N_delta)
+    # Compute its leading left eigenvector for the eigenvalue 1 (authorizing the eigen value to be close to 1 with a tolerance parameter, to take into account computational approximations) 
     eigval,eigvec = spl.eig(P,left=True,right=False)
     pi_RC = eigvec[:,abs(eigval - 1) < tol][:,0]
     return pi_RC/sum(pi_RC)
 
+# Borda Count analysis
 
+def borda_count(t,Y,A,delta):
+    '''
+    Returns the vector of winrates for each element at a given time t, using all the data contained in the neighborhood N_delta(t).
+    '''
+    T, N = A.shape[:2]
+    N_delta = graph.neighborhood(t,delta,T-1)
+    # Select data in the neighborhood
+    Y_delta = np.sum(Y[N_delta,:,:],axis=0)
+    A_delta = np.sum(A[N_delta,:,:],axis=0)
+    # Compute the winrates for each item
+    borda_count = np.sum(Y_delta, axis=0) / np.sum(A_delta,axis=0)
+    return borda_count
+
+def error_metric(w,sigma):
+    '''
+    w : N-array of the true weights for the item
+    sigma: N-array of the estimated ranks, obtained from any estimation method (DRC, MLE, Borda Count...)
+    Return the error metric D_w(sigma).
+    '''
+    s = 0
+    N = np.shape(w)[0]
+    for i in range(N):
+        for j in range(i+1,N):
+            cond = (w[i]-w[j])*(sigma[i]-sigma[j])>0
+            if cond:
+                s =+ (w[i]-w[j])**2 # Only count pairs where ranking is incorrect
+    return np.sqrt(s/(2*N*np.linalg.norm(w)**2))
 
