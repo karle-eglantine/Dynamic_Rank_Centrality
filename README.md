@@ -1,5 +1,5 @@
 # Dynamic Rank Centrality
- Code for the paper : put link
+ Code for the paper : arXiv:2109.13743
  
 ## Files
 
