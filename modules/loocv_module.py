@@ -1,3 +1,6 @@
+# This module contains functions to perform Leave-One-Out Cross-Validation for the DRC,MLE and the Borda Count methods.
+# The code for the MLE method belongs to Bong et al. (2020)
+
 import sys
 import numpy as np
 import scipy as sc
@@ -10,10 +13,16 @@ import simulation_module as sim
 
 def loocv_rc(Y,A,delta_list,num_loocv = 200,t=1):
     '''
-    t : time at which we want to recover the ranks
+    Y: T-N-N array containing the proportions of time i won against j at any time t
+    A: T-N-N array containing the adjacency matrices of the graphs at each time t
+    delta_list: list of candidates for the value of delta
+    num_loocv : number of cross validation to perform
+    t: time in [0,1] at which we want to estimate the ranks
+    
+    Return a optimal value of delta and the estimate of the weights at time t for this value of delta by the DRC method
     '''    
     T,N = np.shape(A)[:2]
-    # Create a pool of pi to choose from
+    # Create a pool of estimates pi at time t to choose from
     pis = np.zeros((len(delta_list),N))
     for i,delta in enumerate(delta_list):
         pis[i,:] = sim.RC_dyn(t,Y,A, delta, tol=1e-12)
@@ -22,13 +31,15 @@ def loocv_rc(Y,A,delta_list,num_loocv = 200,t=1):
     indices = np.transpose(np.nonzero(A)) # Array of all (t,i,j) possible combinations to choose from
     N_comp = np.shape(indices)[0] # total number of comparisons
     
-    error = np.zeros(len(delta_list))
+    error = np.zeros(len(delta_list)) # Array of the mean error of the loocv for each value of delta
     for l,delta in enumerate(delta_list):
-        error_delta = np.zeros(num_loocv)
+        error_delta = np.zeros(num_loocv) # Array of the errors for each loocv for a given value of delta
         for k in range(num_loocv):
+            # Copy the data
             Y_loocv = Y.copy()
             A_loocv = A.copy()
-        
+            
+            # Choose one comparison y_{ij}(t) to remove from the dataset
             rand_match = np.random.randint(N_comp) # random number between 0 and Total number of comparisons
             rand_index = indices[rand_match,:] # Select the tuple (t,i,j) corresponding to the rand_match comparison
             s,i,j = tuple(rand_index)
@@ -43,8 +54,10 @@ def loocv_rc(Y,A,delta_list,num_loocv = 200,t=1):
             pi = sim.RC_dyn(s/T,Y_loocv,A_loocv, delta, tol=1e-12) # vector of length N
             prob = pi[j]/(pi[i]+pi[j])
             error_delta[k] = np.linalg.norm(prob-Y[s,i,j])
+        # Compute the mean error for each value of delta
         error[l] = np.mean(error_delta)
-
+         
+    # Choose the value of delta that minimizes the error, and the corresponding estimate pi(t)
     index = max(idx for idx, val in enumerate(error) if val == np.min(error[~np.isnan(error)]))
     delta_star = delta_list[index]
     pi_star = pis[index,:]
@@ -53,10 +66,16 @@ def loocv_rc(Y,A,delta_list,num_loocv = 200,t=1):
 
 def loocv_borda(Y,A,delta_list,t,num_loocv = 200):
     '''
-    t : time at which we want to recover the ranks
+    Y: T-N-N array containing the proportions of time i won against j at any time t
+    A: T-N-N array containing the adjacency matrices of the graphs at each time t
+    delta_list: list of candidates for the value of delta
+    num_loocv : number of cross validation to perform
+    t: time in [0,1] at which we want to estimate the ranks
+    
+    Return a optimal value of delta and the estimate of the weights at time t for this value of delta by the Borda Count method
     '''    
     T,N = np.shape(A)[:2]
-    # Create a pool of pi to choose from
+    # Create a pool of estimates pi at time t to choose from, using the Borda Count method
     pis = np.zeros((len(delta_list),N))
     for i,delta in enumerate(delta_list):
         pis[i,:] = sim.borda_count(t,Y,A, delta)
@@ -69,9 +88,11 @@ def loocv_borda(Y,A,delta_list,t,num_loocv = 200):
     for l, delta in enumerate(delta_list):
         error_delta = np.zeros(num_loocv)
         for k in range(num_loocv):
+            # Copy the data
             Y_loocv = Y.copy()
             A_loocv = A.copy()
-        
+            
+            # Choose one comparison to remove from the dataset
             rand_match = np.random.randint(N_comp) # random number between 0 and Total number of comparisons
             rand_index = indices[rand_match,:] # Select the tuple (t,i,j) corresponding to the rand_match comparison
             s,i,j = tuple(rand_index)
@@ -82,13 +103,14 @@ def loocv_borda(Y,A,delta_list,t,num_loocv = 200):
             A_loocv[s,i,j] = 0
             A_loocv[s,j,i] = 0  
             
-            # Fit model and compute prediction error
+            # Fit the model and compute prediction error
             pi = sim.borda_count(s/T,Y_loocv,A_loocv, delta) # vector of length N
             ranks = ss.rankdata(-pi,method='average')
             error_delta[k] = (Y[s,i,j]==1)*(ranks[i]< ranks[j])
             
         error[l] = np.mean(error_delta)
-        
+    
+    # Choose the value of delta that minimizes the error and the corresponding estimate 
     index = max(idx for idx, val in enumerate(error) if val == np.min(error[~np.isnan(error)]))
     delta_star = delta_list[index]
     pi_star = pis[index,:]
